@@ -9,6 +9,7 @@ Example: 't2.*,m4.large'
 Using the 'current' magic value will only allow the same type as the
 on-demand instances set in the group's launch configuration.
 EOF
+
   default = ""
 }
 
@@ -19,6 +20,7 @@ in case you want to exclude specific types (also support globs).
 
 Example: 't2.*,m4.large'
 EOF
+
   default = ""
 }
 
@@ -84,4 +86,9 @@ variable "lambda_timeout" {
 
 variable "lambda_run_frequency" {
   description = "How frequent should lambda run"
+}
+
+variable "lambda_tags" {
+  description = "Tags to be applied to the Lambda function"
+  type        = "map"
 }

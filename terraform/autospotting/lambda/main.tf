@@ -9,6 +9,7 @@ resource "aws_lambda_function" "autospotting" {
   timeout          = "${var.lambda_timeout}"
   handler          = "autospotting"
   memory_size      = "${var.lambda_memory_size}"
+  tags             = "${var.lambda_tags}"
 
   environment {
     variables = {
@@ -29,14 +30,15 @@ resource "aws_lambda_function" "autospotting" {
 resource "aws_lambda_function" "autospotting_from_s3" {
   count = "${var.lambda_s3_bucket == "" ? 0 : 1}"
 
-  function_name    = "autospotting"
-  s3_bucket        = "${var.lambda_s3_bucket}"
-  s3_key           = "${var.lambda_s3_key}"
-  role             = "${var.lambda_role_arn}"
-  runtime          = "${var.lambda_runtime}"
-  timeout          = "${var.lambda_timeout}"
-  handler          = "autospotting"
-  memory_size      = "${var.lambda_memory_size}"
+  function_name = "autospotting"
+  s3_bucket     = "${var.lambda_s3_bucket}"
+  s3_key        = "${var.lambda_s3_key}"
+  role          = "${var.lambda_role_arn}"
+  runtime       = "${var.lambda_runtime}"
+  timeout       = "${var.lambda_timeout}"
+  handler       = "autospotting"
+  memory_size   = "${var.lambda_memory_size}"
+  tags          = "${var.lambda_tags}"
 
   environment {
     variables = {
