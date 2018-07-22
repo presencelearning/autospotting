@@ -27,6 +27,7 @@ func Run(cfg *Config) {
 	// use this only to list all the other regions
 	ec2Conn := connectEC2(cfg.MainRegion)
 
+	addDefaultFilteringMode(cfg)
 	addDefaultFilter(cfg)
 
 	allRegions, err := getRegions(ec2Conn)
@@ -40,9 +41,24 @@ func Run(cfg *Config) {
 
 }
 
+func addDefaultFilteringMode(cfg *Config) {
+	if cfg.TagFilteringMode != "opt-out" {
+		debug.Printf("Configured filtering mode: '%s', considering it as 'opt-in'(default)\n",
+			cfg.TagFilteringMode)
+		cfg.TagFilteringMode = "opt-in"
+	} else {
+		debug.Println("Configured filtering mode: 'opt-out'")
+	}
+}
+
 func addDefaultFilter(cfg *Config) {
 	if len(strings.TrimSpace(cfg.FilterByTags)) == 0 {
-		cfg.FilterByTags = "spot-enabled=true"
+		switch cfg.TagFilteringMode {
+		case "opt-out":
+			cfg.FilterByTags = "spot-enabled=false"
+		default:
+			cfg.FilterByTags = "spot-enabled=true"
+		}
 	}
 }
 
@@ -62,7 +78,7 @@ func setupLogging(cfg *Config) {
 }
 
 // processAllRegions iterates all regions in parallel, and replaces instances
-// for each of the ASGs tagged with tags as specifed by slice represented by cfg.FilterByTags
+// for each of the ASGs tagged with tags as specified by slice represented by cfg.FilterByTags
 // by default this is all asg with the tag 'spot-enabled=true'.
 func processRegions(regions []string, cfg *Config) {
 

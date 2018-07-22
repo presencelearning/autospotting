@@ -284,27 +284,6 @@ func (r *region) requestSpotPrices() error {
 	return nil
 }
 
-func (r *region) requestSpotInstanceTypes() ([]string, error) {
-
-	var instTypes []string
-
-	s := spotPrices{conn: r.services}
-
-	// Retrieve all current spot prices from the current region.
-	// TODO: add support for other OSes
-	err := s.fetch("Linux/UNIX", 0, nil, nil)
-
-	if err != nil {
-		return nil, errors.New("Couldn't fetch spot prices in " + r.name)
-	}
-
-	for _, priceInfo := range s.data {
-		instTypes = append(instTypes, *priceInfo.InstanceType)
-	}
-
-	return instTypes, nil
-}
-
 func tagsMatch(asgTag *autoscaling.TagDescription, filteringTag Tag) bool {
 	return asgTag != nil && *asgTag.Key == filteringTag.Key && *asgTag.Value == filteringTag.Value
 }
@@ -330,22 +309,34 @@ func isASGWithMatchingTags(asg *autoscaling.Group, tagsToMatch []Tag) bool {
 	return matchedTags == len(tagsToMatch)
 }
 
-func (r *region) findMatchingASGsInPageOfResults(groups []*autoscaling.Group, tagsToMatch []Tag) []autoScalingGroup {
+func (r *region) findMatchingASGsInPageOfResults(groups []*autoscaling.Group,
+	tagsToMatch []Tag) []autoScalingGroup {
 
 	var asgs []autoScalingGroup
+	var optInFilterMode = (r.conf.TagFilteringMode != "opt-out")
 
 	for _, group := range groups {
-		if isASGWithMatchingTags(group, tagsToMatch) {
-			asgName := *group.AutoScalingGroupName
-			logger.Println("Matching tags found for ASG, enabling ASG for processing:", asgName)
-			asgs = append(asgs, autoScalingGroup{
-				Group:  group,
-				name:   asgName,
-				region: r,
-			})
+		asgName := *group.AutoScalingGroupName
+		groupMatchesExpectedTags := isASGWithMatchingTags(group, tagsToMatch)
+		// Go lacks a logical XOR operator, this is the equivalent to that logical
+		// expression. The goal is to add the matching ASGs when running in opt-in
+		// mode and the other way round.
+		if optInFilterMode != groupMatchesExpectedTags {
+			logger.Printf("Skipping group %s because its tags, the currently "+
+				"configured filtering mode (%s) and tag filters do not align\n",
+				asgName, r.conf.TagFilteringMode)
+			continue
 		}
-	}
 
+		logger.Printf("Enabling group %s for processing because its tags, the "+
+			"currently configured  filtering mode (%s) and tag filters are aligned\n",
+			asgName, r.conf.TagFilteringMode)
+		asgs = append(asgs, autoScalingGroup{
+			Group:  group,
+			name:   asgName,
+			region: r,
+		})
+	}
 	return asgs
 }
 
@@ -369,18 +360,6 @@ func (r *region) scanForEnabledAutoScalingGroups() {
 		logger.Println("Failed to describe AutoScalingGroups in", r.name, err.Error())
 	}
 
-}
-
-func containsString(list []*string, a string) bool {
-	if list == nil || len(list) == 0 {
-		return false
-	}
-	for _, b := range list {
-		if *b == a {
-			return true
-		}
-	}
-	return false
 }
 
 func (r *region) hasEnabledAutoScalingGroups() bool {
