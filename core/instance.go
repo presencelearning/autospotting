@@ -212,7 +212,9 @@ func (i *instance) isStorageCompatible(spotCandidate instanceTypeInformation, at
 
 func (i *instance) isVirtualizationCompatible(spotVirtualizationTypes []string) bool {
 	current := *i.VirtualizationType
-
+	if len(spotVirtualizationTypes) == 0 {
+		spotVirtualizationTypes = []string{"HVM"}
+	}
 	debug.Println("Comparing virtualization spot/instance:")
 	debug.Println("\tSpot virtualization: ", spotVirtualizationTypes)
 	debug.Println("\tInstance virtualization: ", current)
@@ -500,9 +502,14 @@ func (i *instance) isReadyToAttach(asg *autoScalingGroup) bool {
 	if *i.State.Name == ec2.InstanceStateNameRunning &&
 		instanceUpTime > gracePeriod {
 		logger.Println("The spot instance", *i.InstanceId,
+			" has passed grace period and is ready to attach to the group.")
+		return true
+	} else if *i.State.Name == ec2.InstanceStateNameRunning &&
+		instanceUpTime < gracePeriod {
+		logger.Println("The spot instance", *i.InstanceId,
 			"is still in the grace period,",
 			"waiting for it to be ready before we can attach it to the group...")
-		return true
+		return false
 	} else if *i.State.Name == ec2.InstanceStateNamePending {
 		logger.Println("The spot instance", *i.InstanceId,
 			"is still pending,",
